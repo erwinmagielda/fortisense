@@ -9,43 +9,90 @@ import pandas as pd
 #
 # - Connects to the IDS server.
 # - Loads samples from KDDTest.csv.
-# - Sends feature rows one by one to simulate live traffic.
-# - Receives and prints predictions from the server.
+# - Selects 50 random rows to simulate live traffic.
+# - Sends feature rows one by one to the server.
+# - Receives predictions and compares them with true labels.
+# - Prints per-sample result and overall accuracy.
 # ============================================================
 
+# Resolve project structure relative to this script
 project_root_directory = os.path.dirname(os.path.dirname(__file__))
 dataset_directory = os.path.join(project_root_directory, "data")
 
 testing_dataset_path = os.path.join(dataset_directory, "KDDTest.csv")
 
-HOST = "127.0.0.1"
-PORT = 5050
+server_host = "127.0.0.1"
+server_port = 5050
 
 print("[*] FortiSense IDS Client - Loading test dataset...")
 
 testing_dataframe = pd.read_csv(testing_dataset_path)
 
-# Remove label columns so only features are sent
+# Keep a copy of labels so we can verify predictions later
+true_label_series = testing_dataframe["label"]
+
+# Only feature columns are sent to the IDS server
 feature_dataframe = testing_dataframe.drop(columns=["label", "attack_type"])
 
-print(f"[+] Test dataset loaded with {len(feature_dataframe)} rows.")
+print(f"[+] Test dataset loaded with {len(feature_dataframe)} total rows.")
 print()
 
-print(f"[*] Connecting to IDS server at {HOST}:{PORT}...")
+# Select 50 random samples for the real-time simulation
+sample_count = 50
+sampled_dataframe = feature_dataframe.sample(n=sample_count, random_state=42)
+sampled_indices = sampled_dataframe.index
 
-with socket.create_connection((HOST, PORT)) as client_socket:
+print(f"[*] Selected {sample_count} random samples for real-time testing.")
+print(f"[+] Sample indices: {list(sampled_indices[:10])} ...")
+print()
+
+print(f"[*] Connecting to IDS server at {server_host}:{server_port}...")
+
+with socket.create_connection((server_host, server_port)) as client_socket:
     print("[+] Connected to IDS server.")
-    print("[*] Sending first 20 samples as simulated network traffic...\n")
+    print("[*] Sending sampled rows as simulated network traffic...\n")
 
-    for index in range(20):
-        sample_row = feature_dataframe.iloc[index].to_dict()
+    total_samples_sent = 0
+    total_correct_predictions = 0
 
-        # Encode sample as bytes
-        payload = pickle.dumps(sample_row)
-        client_socket.send(payload)
+    for position, row_index in enumerate(sampled_indices, start=1):
+        # Convert this sample row to a dictionary of feature_name -> value
+        sample_row_dictionary = sampled_dataframe.loc[row_index].to_dict()
+
+        # Encode sample as bytes for transmission
+        payload_bytes = pickle.dumps(sample_row_dictionary)
+        client_socket.send(payload_bytes)
 
         # Receive prediction from server
-        prediction = client_socket.recv(4096).decode()
-        print(f"Sample {index + 1:02d} - Prediction: {prediction}")
+        prediction_text = client_socket.recv(4096).decode().strip()
 
-    print("\n[✓] Finished sending samples. Closing client connection.")
+        # Ground truth label for this row (0 - normal, 1 - attack)
+        true_label_value = int(true_label_series.loc[row_index])
+        true_label_text = "normal" if true_label_value == 0 else "attack"
+
+        is_correct_prediction = (prediction_text == true_label_text)
+
+        total_samples_sent += 1
+        if is_correct_prediction:
+            total_correct_predictions += 1
+
+        correctness_flag = "CORRECT" if is_correct_prediction else "WRONG"
+
+        print(
+            f"Sample {position:02d} (row index {row_index}) - "
+            f"True: {true_label_text:7s} | Predicted: {prediction_text:7s} "
+            f"-> {correctness_flag}"
+        )
+
+    if total_samples_sent > 0:
+        accuracy_ratio = total_correct_predictions / total_samples_sent
+    else:
+        accuracy_ratio = 0.0
+
+    print("\n=== FortiSense IDS - Online Evaluation Summary ===")
+    print(f"Total samples sent      : {total_samples_sent}")
+    print(f"Correct predictions     : {total_correct_predictions}")
+    print(f"Online accuracy (50 samples): {accuracy_ratio:.4f}")
+    print()
+
+    print("[✓] Finished sending samples. Closing client connection.")
