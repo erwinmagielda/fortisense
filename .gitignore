@@ -2,7 +2,7 @@
 notes.txt
 
 # Python dependencies
-requirements.txt
+dependencies.txt
 
 # Machine learning
 models/
