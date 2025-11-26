@@ -4,17 +4,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # ============================================================
-# FortiSense – Part 1: Exploratory Data Analysis (EDA)
+# FortiSense - Part 1: Exploratory Data Analysis (EDA)
 #
-# Performs the exact EDA steps required by the coursework:
+# Performs the EDA steps required by the coursework:
 #   - Dataset shapes
 #   - Summary statistics
 #   - Label distribution (normal vs attack)
-#   - Bar chart: normal vs attack (train + test)
+#   - Bar chart: normal vs attack (train vs test)
 #   - Correlation heatmap (numeric features)
 #   - Attack-type distribution
-#
-# Structure and commenting style is consistent with Part 2.
 # ============================================================
 
 sns.set_theme(style="whitegrid")
@@ -25,31 +23,31 @@ dataset_directory = os.path.join(project_root_directory, "data")
 training_dataset_path = os.path.join(dataset_directory, "KDDTrain.csv")
 testing_dataset_path = os.path.join(dataset_directory, "KDDTest.csv")
 
-# ------------------------------------------------------------
-# 1. Load datasets
-# ------------------------------------------------------------
+print("[*] FortiSense EDA - Loading datasets...")
 
 training_dataframe = pd.read_csv(training_dataset_path)
 testing_dataframe = pd.read_csv(testing_dataset_path)
 
-print("=== Dataset Shapes ===")
-print("Training dataset shape:", training_dataframe.shape)
-print("Testing dataset shape: ", testing_dataframe.shape)
+print(f"[+] Training dataset loaded: {training_dataframe.shape}")
+print(f"[+] Testing dataset loaded : {testing_dataframe.shape}")
 print()
 
 # ------------------------------------------------------------
-# 2. Summary statistics (numeric features)
+# 1. Summary statistics (numeric features)
 # ------------------------------------------------------------
 
 numeric_training_columns = training_dataframe.select_dtypes(include=["int64", "float64"])
 
+print("[*] Computing summary statistics for numeric training features...")
 print("=== Summary Statistics (Training Set) ===")
 print(numeric_training_columns.describe())
 print()
 
 # ------------------------------------------------------------
-# 3. Percentage distribution of normal vs attack
+# 2. Percentage distribution of normal vs attack
 # ------------------------------------------------------------
+
+print("[*] Computing label distribution for normal vs attack...")
 
 label_counts = training_dataframe["label"].value_counts().sort_index()
 label_percentages = (label_counts / len(training_dataframe)) * 100
@@ -60,8 +58,10 @@ print(label_percentages)
 print()
 
 # ------------------------------------------------------------
-# 4. Normal vs Attack bar chart for train + test
+# 3. Normal vs Attack bar chart for train and test
 # ------------------------------------------------------------
+
+print("[*] Generating bar chart for normal vs attack distribution (train vs test)...")
 
 train_normal = label_counts.get(0, 0)
 train_attack = label_counts.get(1, 0)
@@ -83,13 +83,15 @@ sns.barplot(
     y="Count",
     hue="Label"
 )
-plt.title("Normal vs Attack Distribution – Training and Testing Sets")
+plt.title("Normal vs Attack Distribution - Training and Testing Sets")
 plt.tight_layout()
 plt.show()
 
 # ------------------------------------------------------------
-# 5. Correlation heatmap (numeric features)
+# 4. Correlation heatmap (numeric features)
 # ------------------------------------------------------------
+
+print("[*] Computing and plotting correlation heatmap for numeric features...")
 
 correlation_matrix = numeric_training_columns.corr()
 
@@ -99,13 +101,15 @@ sns.heatmap(
     cmap="coolwarm",
     linewidths=0.3
 )
-plt.title("Correlation Heatmap – Numeric Features (Training Set)")
+plt.title("Correlation Heatmap - Numeric Features (Training Set)")
 plt.tight_layout()
 plt.show()
 
 # ------------------------------------------------------------
-# 6. Attack-type distribution (all rows)
+# 5. Attack-type distribution
 # ------------------------------------------------------------
+
+print("[*] Computing attack-type distribution for the training set...")
 
 attack_type_counts = training_dataframe["attack_type"].value_counts()
 attack_type_percentages = (attack_type_counts / len(training_dataframe)) * 100
@@ -129,8 +133,8 @@ sns.barplot(
     order=attack_type_dataframe.sort_values("count", ascending=False)["attack_type"]
 )
 plt.xticks(rotation=90)
-plt.title("Attack-Type Distribution – Training Dataset")
+plt.title("Attack-Type Distribution - Training Dataset")
 plt.tight_layout()
 plt.show()
 
-print("=== FortiSense – EDA completed ===")
+print("[✓] FortiSense EDA - Completed")
