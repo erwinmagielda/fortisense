@@ -4,52 +4,77 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # ============================================================
-# FortiSense - Part I: Exploratory Data Analysis
+# FortiSense - Part I: Exploratory Data Analysis (EDA)
 #
-# Performs the EDA steps:
-#   1. Dataset shapes
-#   2. Summary statistics
-#   3. Label distribution
-#   4. Bar chart
-#   5. Correlation heatmap
-#   6. Attack-type distribution
+# This script performs baseline exploratory analysis on the
+# KDD-style training and testing datasets to understand:
+#
+#   1. Dataset shapes (train vs test)
+#   2. Summary statistics for numeric features
+#   3. Binary label distribution (normal vs attack)
+#   4. Normal vs attack bar chart (train vs test)
+#   5. Correlation heatmap for numeric features
+#   6. Attack type distribution (multi class)
+#
+# The output is used to:
+#   - Validate dataset integrity
+#   - Identify class imbalance
+#   - Spot correlated or redundant features
+#   - Provide visual evidence for the written report
 # ============================================================
 
+# Use a consistent Seaborn theme for all plots
 sns.set_theme(style="whitegrid")
 
+# ------------------------------------------------------------
+# Resolve dataset paths relative to the project root
+# ------------------------------------------------------------
+# __file__ points to this script.
+# dirname(dirname(__file__)) goes one level up into the project root.
 project_root_directory = os.path.dirname(os.path.dirname(__file__))
 dataset_directory = os.path.join(project_root_directory, "data")
 
+# Full paths to the training and testing CSV files
 training_dataset_path = os.path.join(dataset_directory, "KDDTrain.csv")
 testing_dataset_path = os.path.join(dataset_directory, "KDDTest.csv")
 
 print("[*] FortiSense EDA - Loading datasets...")
 
+# Load both datasets into memory
 training_dataframe = pd.read_csv(training_dataset_path)
 testing_dataframe = pd.read_csv(testing_dataset_path)
 
+# Shape is (rows, columns) and is useful to verify expected sizes
 print(f"[+] Training dataset loaded: {training_dataframe.shape}")
 print(f"[+] Testing dataset loaded : {testing_dataframe.shape}")
 print()
 
 # ------------------------------------------------------------
-# 1. Summary statistics
+# 1. Summary statistics for numeric features
 # ------------------------------------------------------------
 
+# Select only numeric columns (int64 and float64) in the training set.
+# This avoids including label and other non numeric attributes in the summary.
 numeric_training_columns = training_dataframe.select_dtypes(include=["int64", "float64"])
 
 print("[*] Computing summary statistics for numeric training features...")
 print("=== Summary Statistics (Training Set) ===")
+# .describe() gives count, mean, std, min, quartiles, and max per feature
 print(numeric_training_columns.describe())
 print()
 
 # ------------------------------------------------------------
-# 2. Percentage distribution of normal vs attack
+# 2. Percentage distribution of normal vs attack (binary label)
 # ------------------------------------------------------------
 
 print("[*] Computing label distribution for normal vs attack...")
 
+# Value counts for the binary label:
+#   0 → normal
+#   1 → attack
 label_counts = training_dataframe["label"].value_counts().sort_index()
+
+# Convert absolute counts to percentages for easier interpretation
 label_percentages = (label_counts / len(training_dataframe)) * 100
 label_percentages.name = "percentage"
 
@@ -63,19 +88,24 @@ print()
 
 print("[*] Generating bar chart for normal vs attack distribution (train vs test)...")
 
+# Extract binary label counts for the training set
 train_normal = label_counts.get(0, 0)
 train_attack = label_counts.get(1, 0)
 
+# Repeat the same computation for the testing set
 test_counts = testing_dataframe["label"].value_counts().sort_index()
 test_normal = test_counts.get(0, 0)
 test_attack = test_counts.get(1, 0)
 
+# Build a small DataFrame that encodes dataset type, label, and count.
+# This makes it easy to pass into Seaborn for a grouped bar plot.
 bar_chart_dataframe = pd.DataFrame({
     "Dataset": ["Train", "Train", "Test", "Test"],
     "Label": ["Normal", "Attack", "Normal", "Attack"],
     "Count": [train_normal, train_attack, test_normal, test_attack]
 })
 
+# Plot side by side bars for train and test label distributions
 plt.figure()
 sns.barplot(
     data=bar_chart_dataframe,
@@ -88,11 +118,13 @@ plt.tight_layout()
 plt.show()
 
 # ------------------------------------------------------------
-# 4. Correlation heatmap
+# 4. Correlation heatmap for numeric features
 # ------------------------------------------------------------
 
 print("[*] Computing and plotting correlation heatmap for numeric features...")
 
+# Pearson correlation matrix between all numeric features.
+# This helps to identify highly correlated features which may be redundant.
 correlation_matrix = numeric_training_columns.corr()
 
 plt.figure()
@@ -106,12 +138,13 @@ plt.tight_layout()
 plt.show()
 
 # ------------------------------------------------------------
-# 5. Attack-type distribution
+# 5. Attack type distribution (multi class)
 # ------------------------------------------------------------
 
 print("[*] Computing attack-type distribution for the training set...")
 print()
 
+# attack_type is a categorical field that maps label 1 to concrete attack families
 attack_type_counts = training_dataframe["attack_type"].value_counts()
 attack_type_percentages = (attack_type_counts / len(training_dataframe)) * 100
 
@@ -123,9 +156,11 @@ print("=== Attack-Type Distribution (Percentages) ===")
 print(attack_type_percentages)
 print()
 
+# Prepare a DataFrame for plotting attack type counts
 attack_type_dataframe = attack_type_counts.reset_index()
 attack_type_dataframe.columns = ["attack_type", "count"]
 
+# Bar plot of attack types sorted by frequency
 plt.figure(figsize=(12, 6))
 sns.barplot(
     data=attack_type_dataframe,
