@@ -50,7 +50,7 @@ testing_dataset_path = os.path.join(dataset_directory, "KDDTest.csv")
 
 print("[*] FortiSense ML - Loading datasets...")
 
-# Load the NSL KDD training and testing splits
+# Load the KDD-style training and testing splits
 training_dataframe = pd.read_csv(training_dataset_path)
 testing_dataframe = pd.read_csv(testing_dataset_path)
 

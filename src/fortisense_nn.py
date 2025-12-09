@@ -12,7 +12,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 # FortiSense - Part III: Neural Network Model
 #
 # This script trains a fully connected feedforward neural
-# network (MLP) on the NSL-KDD dataset for binary classification:
+# network (MLP) on the KDD-style dataset for binary classification:
 #   label = 0 -> normal
 #   label = 1 -> attack
 #
@@ -138,7 +138,7 @@ class FortiSenseNeuralNetwork(nn.Module):
 
 
 # Instantiate the network with an input dimension that matches
-# the number of features in the NSL KDD dataset.
+# the number of features in the KDD-style dataset.
 neural_network_model = FortiSenseNeuralNetwork(
     input_feature_count=len(feature_column_names)
 ).to(computation_device)
