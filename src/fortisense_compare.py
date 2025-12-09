@@ -4,7 +4,7 @@ from fortisense_ml import rf_metrics, svm_metrics
 from fortisense_nn import nn_metrics
 
 # ============================================================
-# FortiSense - Part IV: Model Comparison and Analysis
+# FortiSense - Part IV: Model Comparison
 #
 # This script assumes:
 #   ☠ fortisense_ml.py has been run at least once
@@ -36,7 +36,7 @@ def main():
         "f1_score", ascending=False
     ).iloc[0]
 
-    print("\n=== Best Performing Model (by F1 score) ===")
+    print("\n=== Best Performing Model (by F1-score) ===")
     print(best_model_row)
     print()
 

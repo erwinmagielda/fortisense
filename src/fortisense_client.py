@@ -7,12 +7,12 @@ import pandas as pd
 # ============================================================
 # FortiSense - Part V: Real-Time IDS Client
 #
-# ☠ Connects to the IDS server.
-# ☠ Loads samples from KDDTest.csv.
-# ☠ Selects 50 random rows to simulate live traffic.
-# ☠ Sends feature rows one by one to the server.
-# ☠ Receives predictions and compares them with true labels.
-# ☠ Prints per-sample result and overall accuracy.
+# 1. Connects to the IDS server.
+# 2. Loads samples from KDDTest.csv.
+# 3. Selects 50 random rows to simulate live traffic.
+# 4. Sends feature rows one by one to the server.
+# 5. Receives predictions and compares them with true labels.
+# 6. Prints per-sample result and overall accuracy.
 # ============================================================
 
 # Resolve project structure relative to this script
@@ -56,7 +56,7 @@ with socket.create_connection((server_host, server_port)) as client_socket:
     total_correct_predictions = 0
 
     for position, row_index in enumerate(sampled_indices, start=1):
-        # Convert this sample row to a dictionary of feature_name -> value
+        # Convert this sample row to a dictionary for transmission
         sample_row_dictionary = sampled_dataframe.loc[row_index].to_dict()
 
         # Encode sample as bytes for transmission

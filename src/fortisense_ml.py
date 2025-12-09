@@ -15,12 +15,12 @@ from sklearn.svm import LinearSVC
 #   ☠ Linear Support Vector Machine
 #
 # Steps:
-#   ☠ Load datasets
-#   ☠ Split into features and labels
-#   ☠ Train both models
-#   ☠ Evaluate using accuracy, precision, recall, F1-score
-#   ☠ Save models, scaler and feature list to the models directory
-#   ☠ Expose metric dictionaries for Part IV comparison
+#   1. Load datasets
+#   2. Split into features and labels
+#   3. Train both models
+#   4. Evaluate using accuracy, precision, recall, F1-score
+#   5. Save models, scaler and feature list to the models directory
+#   6. Expose metric dictionaries for Part IV comparison
 # ============================================================
 
 project_root_directory = os.path.dirname(os.path.dirname(__file__))
@@ -80,7 +80,7 @@ def evaluate_classification_model(true_labels, predicted_labels, model_name):
     print(f"Accuracy : {accuracy_value:.4f}")
     print(f"Precision: {precision_value:.4f}")
     print(f"Recall   : {recall_value:.4f}")
-    print(f"F1 score : {f1_value:.4f}")
+    print(f"F1-score : {f1_value:.4f}")
     print()
 
     return {
@@ -176,7 +176,7 @@ print(f"[+] Feature scaler saved to     : {feature_scaler_path}")
 print(f"[+] Feature column list saved to: {feature_columns_path}")
 print()
 
-# Expose metric dictionaries for Part 4 comparison
+# Expose metric dictionaries for Part IV comparison
 rf_metrics = random_forest_metrics
 svm_metrics = linear_svm_metrics
 

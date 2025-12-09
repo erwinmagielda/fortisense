@@ -4,15 +4,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # ============================================================
-# FortiSense - Part I: Exploratory Data Analysis (EDA)
+# FortiSense - Part I: Exploratory Data Analysis
 #
 # Performs the EDA steps:
-#   ☠ Dataset shapes
-#   ☠ Summary statistics
-#   ☠ Label distribution
-#   ☠ Bar chart
-#   ☠ Correlation heatmap
-#   ☠ Attack-type distribution
+#   1. Dataset shapes
+#   2. Summary statistics
+#   3. Label distribution
+#   4. Bar chart
+#   5. Correlation heatmap
+#   6. Attack-type distribution
 # ============================================================
 
 sns.set_theme(style="whitegrid")
@@ -58,7 +58,7 @@ print(label_percentages)
 print()
 
 # ------------------------------------------------------------
-# 3. Normal vs Attack bar chart for train and test
+# 3. Normal vs attack bar chart for train and test
 # ------------------------------------------------------------
 
 print("[*] Generating bar chart for normal vs attack distribution (train vs test)...")
@@ -110,6 +110,7 @@ plt.show()
 # ------------------------------------------------------------
 
 print("[*] Computing attack-type distribution for the training set...")
+print()
 
 attack_type_counts = training_dataframe["attack_type"].value_counts()
 attack_type_percentages = (attack_type_counts / len(training_dataframe)) * 100

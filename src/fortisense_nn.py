@@ -9,16 +9,16 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # ============================================================
-# FortiSense - Part III: Neural Network Model (PyTorch)
+# FortiSense - Part III: Neural Network Model
 #
 # Steps:
-#   ☠ Load KDD datasets
-#   ☠ Scale features
-#   ☠ Define an MLP architecture
-#   ☠ Train on CPU or GPU
-#   ☠ Evaluate accuracy, precision, recall, F1-score
-#   ☠ Save trained model for later inference
-#   ☠ Expose metric dictionary for Part IV comparison
+#   1. Load KDD datasets
+#   2. Scale features
+#   3. Define an MLP architecture
+#   4. Train on CPU or GPU
+#   5. Evaluate accuracy, precision, recall, F1-score
+#   6. Save trained model for later inference
+#   7. Expose metric dictionary for Part IV comparison
 # ============================================================
 
 computation_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -160,7 +160,7 @@ print("=== Neural Network Evaluation Results ===")
 print(f"Accuracy : {accuracy_value:.4f}")
 print(f"Precision: {precision_value:.4f}")
 print(f"Recall   : {recall_value:.4f}")
-print(f"F1 score : {f1_value:.4f}")
+print(f"F1-score : {f1_value:.4f}")
 print()
 
 # Expose metrics for Part IV comparison

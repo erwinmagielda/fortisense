@@ -7,10 +7,10 @@ import subprocess
 #
 # Runs the full project pipeline in order:
 #   1. EDA (fortisense_eda.py)
-#   2. Classical ML Models (fortisense_ml.py)
+#   2. Classical MLMs (fortisense_ml.py)
 #   3. NN (fortisense_nn.py)
-#   4. Model comparison (fortisense_compare.py)
-#   5. Optionally starts the IDS server (fortisense_server.py)
+#   4. Model Comparison (fortisense_compare.py)
+#   5. The IDS Server (fortisense_server.py)
 #
 # The script pauses before each step and asks to proceed.
 # ============================================================
@@ -51,33 +51,33 @@ def main():
 
     # 1. EDA
     if confirm_step("Part I - Exploratory Data Analysis"):
-        run_module("fortisense_eda.py", "Part 1 - Exploratory Data Analysis")
+        run_module("fortisense_eda.py", "Part I - Exploratory Data Analysis")
     else:
         print("[+] Skipped: Part I - Exploratory Data Analysis")
 
     # 2. Classical ML Modlels (Random Forest + Linear SVM)
-    if confirm_step("Part II - Classical ML Models (Random Forest + Linear SVM)"):
-        run_module("fortisense_ml.py", "Part 2 - Classical ML Models")
+    if confirm_step("Part II - Classical Machine Learning Models (RF + SVM)"):
+        run_module("fortisense_ml.py", "Part II - Classical Machine Learning Models (RF + SVM)")
     else:
-        print("[+] Skipped: Part II - Classical ML Models")
+        print("[+] Skipped: Part II - Classical Machine Learning Models (RF + SVM)")
 
     # 3. Neural Network (PyTorch)
-    if confirm_step("Part III - Neural Network Model (PyTorch)"):
+    if confirm_step("Part III - Neural Network Model"):
         run_module("fortisense_nn.py", "Part III - Neural Network Model")
     else:
         print("[+] Skipped: Part III - Neural Network Model")
 
     # 4. Model comparison (RF vs SVM vs NN)
     if confirm_step("Part IV - Model Comparison (RF vs SVM vs NN)"):
-        run_module("fortisense_compare.py", "Part IV - Model Comparison")
+        run_module("fortisense_compare.py", "Part IV - Model Comparison (RF vs SVM vs NN)")
     else:
-        print("[+] Skipped: Part IV - Model Comparison")
+        print("[+] Skipped: Part IV - Model Comparison (RF vs SVM vs NN)")
 
     print("\n[✓] FortiSense Master - Core pipeline finished (with possible skips).")
     print("[*] At this point, any completed training steps have saved models")
     print("    into the 'models' directory.\n")
 
-    # 5. Ask whether to start the IDS server
+    # 5. Start the IDS server
     user_choice = input("Start FortiSense IDS server now? (Y/N): ").strip().lower()
 
     if user_choice == "y":
