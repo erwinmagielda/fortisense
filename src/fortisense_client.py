@@ -5,14 +5,14 @@ import pickle
 import pandas as pd
 
 # ============================================================
-# FortiSense - Part 5: Real-Time IDS Client
+# FortiSense - Part V: Real-Time IDS Client
 #
-# - Connects to the IDS server.
-# - Loads samples from KDDTest.csv.
-# - Selects 50 random rows to simulate live traffic.
-# - Sends feature rows one by one to the server.
-# - Receives predictions and compares them with true labels.
-# - Prints per-sample result and overall accuracy.
+# ☠ Connects to the IDS server.
+# ☠ Loads samples from KDDTest.csv.
+# ☠ Selects 50 random rows to simulate live traffic.
+# ☠ Sends feature rows one by one to the server.
+# ☠ Receives predictions and compares them with true labels.
+# ☠ Prints per-sample result and overall accuracy.
 # ============================================================
 
 # Resolve project structure relative to this script
@@ -28,7 +28,7 @@ print("[*] FortiSense IDS Client - Loading test dataset...")
 
 testing_dataframe = pd.read_csv(testing_dataset_path)
 
-# Keep a copy of labels so we can verify predictions later
+# Keep a copy of labels to verify predictions later
 true_label_series = testing_dataframe["label"]
 
 # Only feature columns are sent to the IDS server

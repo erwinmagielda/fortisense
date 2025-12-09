@@ -8,19 +8,19 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 
 # ============================================================
-# FortiSense - Part 2: Classical Machine Learning Models
+# FortiSense - Part II: Classical Machine Learning Models
 #
 # Models:
-#   - Random Forest
-#   - Linear SVM
+#   ☠ Random Forest
+#   ☠ Linear Support Vector Machine
 #
 # Steps:
-#   - Load datasets
-#   - Split into features and labels
-#   - Train both models
-#   - Evaluate using accuracy, precision, recall, F1
-#   - Save models, scaler and feature list to the models directory
-#   - Expose metric dictionaries for Part 4 comparison
+#   ☠ Load datasets
+#   ☠ Split into features and labels
+#   ☠ Train both models
+#   ☠ Evaluate using accuracy, precision, recall, F1-score
+#   ☠ Save models, scaler and feature list to the models directory
+#   ☠ Expose metric dictionaries for Part IV comparison
 # ============================================================
 
 project_root_directory = os.path.dirname(os.path.dirname(__file__))

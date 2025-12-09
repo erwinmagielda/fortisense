@@ -4,11 +4,11 @@ from fortisense_ml import rf_metrics, svm_metrics
 from fortisense_nn import nn_metrics
 
 # ============================================================
-# FortiSense - Part 4: Model Comparison and Analysis
+# FortiSense - Part IV: Model Comparison and Analysis
 #
 # This script assumes:
-#   - fortisense_ml.py has been run at least once
-#   - fortisense_nn.py has been run at least once
+#   ☠ fortisense_ml.py has been run at least once
+#   ☠ fortisense_nn.py has been run at least once
 #
 # It imports the metric dictionaries exposed by those modules
 # and prints a single comparison table for the report.

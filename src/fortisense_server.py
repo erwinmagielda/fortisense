@@ -6,12 +6,12 @@ import joblib
 import pandas as pd
 
 # ============================================================
-# FortiSense - Part 5: Real-Time IDS Server
+# FortiSense - Part V: Real-Time IDS Server
 #
-# - Loads the trained Random Forest model and feature scaler.
-# - Listens on a TCP socket for incoming feature rows.
-# - Each row is treated as one network connection.
-# - Predicts "normal" or "attack" and sends the result back.
+# ☠ Loads the trained Random Forest model and feature scaler.
+# ☠ Listens on a TCP socket for incoming feature rows.
+# ☠ Each row is treated as one network connection.
+# ☠ Predicts "normal" or "attack" and sends the result back.
 # ============================================================
 
 project_root_directory = os.path.dirname(os.path.dirname(__file__))

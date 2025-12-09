@@ -4,15 +4,15 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # ============================================================
-# FortiSense - Part 1: Exploratory Data Analysis (EDA)
+# FortiSense - Part I: Exploratory Data Analysis (EDA)
 #
-# Performs the EDA steps required by the coursework:
-#   - Dataset shapes
-#   - Summary statistics
-#   - Label distribution (normal vs attack)
-#   - Bar chart: normal vs attack (train vs test)
-#   - Correlation heatmap (numeric features)
-#   - Attack-type distribution
+# Performs the EDA steps:
+#   ☠ Dataset shapes
+#   ☠ Summary statistics
+#   ☠ Label distribution
+#   ☠ Bar chart
+#   ☠ Correlation heatmap
+#   ☠ Attack-type distribution
 # ============================================================
 
 sns.set_theme(style="whitegrid")
@@ -33,7 +33,7 @@ print(f"[+] Testing dataset loaded : {testing_dataframe.shape}")
 print()
 
 # ------------------------------------------------------------
-# 1. Summary statistics (numeric features)
+# 1. Summary statistics
 # ------------------------------------------------------------
 
 numeric_training_columns = training_dataframe.select_dtypes(include=["int64", "float64"])
@@ -88,7 +88,7 @@ plt.tight_layout()
 plt.show()
 
 # ------------------------------------------------------------
-# 4. Correlation heatmap (numeric features)
+# 4. Correlation heatmap
 # ------------------------------------------------------------
 
 print("[*] Computing and plotting correlation heatmap for numeric features...")
