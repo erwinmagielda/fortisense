@@ -8,7 +8,7 @@ import pandas as pd
 # FortiSense - Part V: Real-Time IDS Client
 #
 # This client simulates live network traffic by streaming a
-# subset of NSL KDD test samples to the FortiSense IDS server.
+# subset of KDD-style test samples to the FortiSense IDS server.
 #
 # High level workflow:
 #   1) Load KDDTest.csv from the data directory
@@ -41,7 +41,7 @@ server_port = 5050
 
 print("[*] FortiSense IDS Client - Loading test dataset...")
 
-# Load NSL KDD test split
+# Load KDD-style test split
 testing_dataframe = pd.read_csv(testing_dataset_path)
 
 # Keep a copy of the binary labels so we can compute accuracy

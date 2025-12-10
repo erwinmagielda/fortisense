@@ -11,7 +11,7 @@ from sklearn.svm import LinearSVC
 # FortiSense - Part II: Classical Machine Learning Models
 #
 # This script trains and evaluates two baseline ML classifiers
-# on the NSL-KDD dataset:
+# on the KDD-style dataset:
 #
 #   1. Random Forest
 #   2. Linear Support Vector Machine (LinearSVC)
