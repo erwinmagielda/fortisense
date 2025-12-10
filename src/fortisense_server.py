@@ -8,7 +8,7 @@ import pandas as pd
 # ============================================================
 # FortiSense - Part V: Real-Time IDS Server
 #
-# This component exposes a lightweight TCP-based inference API
+# This component exposes a TCP-based inference API
 # that receives one feature row at a time and returns a binary
 # prediction:
 #       "normal"  or  "attack"
