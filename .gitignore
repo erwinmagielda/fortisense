@@ -1,11 +1,49 @@
-# Local notes
-notes.txt
-
-# Python dependencies
-dependencies.txt
-
-# Machine learning
-models/
-
-# Python cache
+# --------------------
+# Python
+# --------------------
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# --------------------
+# Virtual Environments
+# --------------------
+.venv/
+venv/
+env/
+
+# --------------------
+# Data & Artefacts
+# --------------------
+data/
+downloads/
+results/
+
+# Trained Models & Artefacts
+models/*.pkl
+models/*.pth
+models/*.joblib
+models/*.json
+
+# Allow Placeholder Dirs
+!models/.gitkeep
+
+# --------------------
+# Jupyter / Analysis
+# --------------------
+.ipynb_checkpoints/
+*.ipynb
+
+# --------------------
+# OS / Editor Noise
+# --------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --------------------
+# Logs
+# --------------------
+*.log

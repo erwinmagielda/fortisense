@@ -1,248 +1,220 @@
-import os
+"""
+FortiSense NN
 
+Trains a small neural network baseline for binary intrusion detection and exports metrics for cross-model comparison.
+"""
+
+
+import json
+import os
+from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple
+
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-import pandas as pd
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-# ============================================================
-# FortiSense - Part III: Neural Network Model
-#
-# This script trains a fully connected feedforward neural
-# network (MLP) on the KDD-style dataset for binary classification:
-#   label = 0 -> normal
-#   label = 1 -> attack
-#
-# High level workflow:
-#   1) Load KDD training and testing datasets
-#   2) Standardise input features
-#   3) Define MLP architecture in PyTorch
-#   4) Train on CPU or GPU (depending on availability)
-#   5) Evaluate on test set using:
-#        - accuracy
-#        - precision
-#        - recall
-#        - F1 score
-#   6) Save trained model parameters to disk
-#   7) Expose metric dictionary for cross model comparison
-#
-# The resulting metrics are used in Part IV to compare the
-# neural network against the classical ML baselines.
-# ============================================================
 
-# Select CUDA if available, otherwise fall back to CPU.
-# This makes the script portable between machines with and
-# without a GPU, without changing any training code.
-computation_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"[*] FortiSense NN - Initialising on device: {computation_device}")
+nn_metrics: Dict[str, Any] | None = None
 
-# ------------------------------------------------------------
-# Resolve project structure and create model directory
-# ------------------------------------------------------------
-project_root_directory = os.path.dirname(os.path.dirname(__file__))
-dataset_directory = os.path.join(project_root_directory, "data")
-model_directory = os.path.join(project_root_directory, "models")
 
-os.makedirs(model_directory, exist_ok=True)
+@dataclass(frozen=True)
+class Paths:
+    root_dir: str
+    data_dir: str
+    models_dir: str
+    train_csv: str
+    test_csv: str
+    nn_state: str
+    nn_scaler: str
+    nn_feature_cols: str
+    metrics_json: str
 
-training_dataset_path = os.path.join(dataset_directory, "KDDTrain.csv")
-testing_dataset_path = os.path.join(dataset_directory, "KDDTest.csv")
-model_output_path = os.path.join(model_directory, "fortisense_nn.pth")
 
-# ------------------------------------------------------------
-# 1. Load and preprocess datasets
-# ------------------------------------------------------------
+@dataclass(frozen=True)
+class TrainConfig:
+    epochs: int = 10
+    lr: float = 1e-3
+    hidden1: int = 64
+    hidden2: int = 32
+    seed: int = 42
 
-print("[*] Loading training and testing datasets...")
 
-training_dataframe = pd.read_csv(training_dataset_path)
-testing_dataframe = pd.read_csv(testing_dataset_path)
+def resolve_paths() -> Paths:
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(script_dir)
+    data_dir = os.path.join(root_dir, "data")
+    models_dir = os.path.join(root_dir, "models")
 
-print(f"[+] Training dataset loaded: {training_dataframe.shape}")
-print(f"[+] Testing dataset loaded : {testing_dataframe.shape}")
-print()
+    return Paths(
+        root_dir=root_dir,
+        data_dir=data_dir,
+        models_dir=models_dir,
+        train_csv=os.path.join(data_dir, "KDDTrain.csv"),
+        test_csv=os.path.join(data_dir, "KDDTest.csv"),
+        nn_state=os.path.join(models_dir, "fortisense_nn.pth"),
+        nn_scaler=os.path.join(models_dir, "fortisense_nn_scaler.pkl"),
+        nn_feature_cols=os.path.join(models_dir, "fortisense_nn_feature_columns.pkl"),
+        metrics_json=os.path.join(models_dir, "fortisense_metrics_nn.json"),
+    )
 
-# Feature columns are all attributes except the label and the
-# human readable attack_type string.
-feature_column_names = [
-    col for col in training_dataframe.columns
-    if col not in ("label", "attack_type")
-]
 
-training_features = training_dataframe[feature_column_names].values
-testing_features = testing_dataframe[feature_column_names].values
+def set_seed(seed: int) -> None:
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
-# Binary labels
-training_labels = training_dataframe["label"].values
-testing_labels = testing_dataframe["label"].values
 
-print(f"[+] Total features:   {len(feature_column_names)}")
-print(f"[+] Training samples: {training_features.shape[0]}")
-print(f"[+] Testing samples:  {testing_features.shape[0]}")
-print()
+def load_dataset(path: str) -> pd.DataFrame:
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"Dataset not found: {path}")
+    df = pd.read_csv(path)
 
-print("[*] Applying feature scaling for neural network input...")
+    required = {"label", "attack_type"}
+    missing = required - set(df.columns)
+    if missing:
+        raise RuntimeError(f"Dataset missing required columns: {sorted(missing)}")
 
-# StandardScaler normalises each feature dimension to zero mean
-# and unit variance. This significantly stabilises neural network
-# training compared with raw feature values.
-feature_scaler = StandardScaler()
-scaled_training_features = feature_scaler.fit_transform(training_features)
-scaled_testing_features = feature_scaler.transform(testing_features)
+    return df
 
-# Convert scaled NumPy arrays to PyTorch tensors and move them
-# to the selected computation device (CPU or GPU).
-training_feature_tensor = torch.tensor(
-    scaled_training_features, dtype=torch.float32
-).to(computation_device)
-testing_feature_tensor = torch.tensor(
-    scaled_testing_features, dtype=torch.float32
-).to(computation_device)
 
-# Labels are stored as integer class indices for CrossEntropyLoss
-training_label_tensor = torch.tensor(training_labels, dtype=torch.long).to(computation_device)
-testing_label_tensor = torch.tensor(testing_labels, dtype=torch.long).to(computation_device)
+def split_features_labels(df: pd.DataFrame) -> Tuple[List[str], Any, Any]:
+    cols = [c for c in df.columns if c not in ("label", "attack_type")]
+    x = df[cols].values
+    y = df["label"].values
+    return cols, x, y
 
-# ------------------------------------------------------------
-# 2. Define NN architecture
-# ------------------------------------------------------------
 
-class FortiSenseNeuralNetwork(nn.Module):
-    """
-    Fully connected feedforward neural network (MLP) for binary
-    classification of network connections (normal vs attack).
+def compute_metrics(y_true, y_pred) -> Dict[str, Any]:
+    return {
+        "model": "Neural Network",
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "precision": float(precision_score(y_true, y_pred, zero_division=0)),
+        "recall": float(recall_score(y_true, y_pred, zero_division=0)),
+        "f1_score": float(f1_score(y_true, y_pred, zero_division=0)),
+    }
 
-    Architecture:
-        input_dim -> 64 -> 32 -> 2 logits
 
-    Activation:
-        ReLU on the hidden layers. The final layer returns raw
-        logits which are passed directly to CrossEntropyLoss.
-    """
+def save_json(path: str, payload: Dict[str, Any]) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as h:
+        json.dump(payload, h, indent=2)
 
-    def __init__(self, input_feature_count):
+
+def load_saved_metrics(metrics_json: str) -> Dict[str, Any] | None:
+    if not os.path.isfile(metrics_json):
+        return None
+    try:
+        with open(metrics_json, "r", encoding="utf-8") as h:
+            obj = json.load(h)
+        return obj.get("nn_metrics")
+    except Exception:
+        return None
+
+
+class FortiSenseMLP(nn.Module):
+    def __init__(self, input_dim: int, hidden1: int, hidden2: int):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_feature_count, 64),
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden1),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(hidden1, hidden2),
             nn.ReLU(),
-            nn.Linear(32, 2)
+            nn.Linear(hidden2, 2),
         )
 
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, x): 
+        return self.net(x)
 
 
-# Instantiate the network with an input dimension that matches
-# the number of features in the KDD-style dataset.
-neural_network_model = FortiSenseNeuralNetwork(
-    input_feature_count=len(feature_column_names)
-).to(computation_device)
+def main() -> int:
+    global nn_metrics
 
-# ------------------------------------------------------------
-# 3. Configure training
-# ------------------------------------------------------------
+    cfg = TrainConfig()
+    set_seed(cfg.seed)
 
-# CrossEntropyLoss:
-#   - applies softmax internally
-#   - expects integer class labels
-loss_function = nn.CrossEntropyLoss()
+    p = resolve_paths()
+    os.makedirs(p.models_dir, exist_ok=True)
 
-# Adam is a standard adaptive optimiser that usually converges
-# faster than vanilla SGD for this type of problem.
-model_optimizer = optim.Adam(neural_network_model.parameters(), lr=0.001)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("[*] FortiSense NN: loading datasets")
+    print(f"[*] Device: {device}")
+    try:
+        train_df = load_dataset(p.train_csv)
+        test_df = load_dataset(p.test_csv)
+    except Exception as exc:
+        print(f"[!] NN error: {exc}")
+        return 1
 
-# Number of passes over the full training set.
-# Here we train in full batch mode for simplicity. In a production
-# IDS setting mini batches would be preferred.
-training_epochs = 10
+    feature_cols, x_train, y_train = split_features_labels(train_df)
+    _, x_test, y_test = split_features_labels(test_df)
 
-print("[*] Starting neural network training...")
-print(f"[+] Epochs: {training_epochs}")
-print()
+    scaler = StandardScaler()
+    x_train_s = scaler.fit_transform(x_train)
+    x_test_s = scaler.transform(x_test)
 
-# ------------------------------------------------------------
-# 4. Training loop
-# ------------------------------------------------------------
+    x_train_t = torch.tensor(x_train_s, dtype=torch.float32, device=device)
+    y_train_t = torch.tensor(y_train, dtype=torch.long, device=device)
+    x_test_t = torch.tensor(x_test_s, dtype=torch.float32, device=device)
 
-neural_network_model.train()
+    model = FortiSenseMLP(len(feature_cols), cfg.hidden1, cfg.hidden2).to(device)
+    loss_fn = nn.CrossEntropyLoss()
+    opt = optim.Adam(model.parameters(), lr=cfg.lr)
 
-for epoch_index in range(training_epochs):
-    # Reset gradients from the previous step
-    model_optimizer.zero_grad()
+    print(f"[+] Train: rows={len(train_df)} features={len(feature_cols)} epochs={cfg.epochs}")
+    print()
 
-    # Forward pass on the entire training set
-    output_logits = neural_network_model(training_feature_tensor)
+    model.train()
+    for epoch in range(1, cfg.epochs + 1):
+        opt.zero_grad()
+        logits = model(x_train_t)
+        loss = loss_fn(logits, y_train_t)
+        loss.backward()
+        opt.step()
+        print(f"Epoch {epoch:02d}/{cfg.epochs} loss={loss.item():.4f}")
 
-    # Compute supervised loss against ground truth labels
-    training_loss = loss_function(output_logits, training_label_tensor)
+    model.eval()
+    with torch.no_grad():
+        pred = torch.argmax(model(x_test_t), dim=1).detach().cpu().numpy()
 
-    # Backpropagate gradients through the network
-    training_loss.backward()
+    nn_metrics = compute_metrics(y_test, pred)
 
-    # Update parameters based on computed gradients
-    model_optimizer.step()
+    print()
+    print("=== FortiSense NN Summary ===")
+    print(
+        f"accuracy={nn_metrics['accuracy']:.4f} "
+        f"precision={nn_metrics['precision']:.4f} "
+        f"recall={nn_metrics['recall']:.4f} "
+        f"f1={nn_metrics['f1_score']:.4f}"
+    )
+    print()
 
-    print(f"Epoch {epoch_index + 1}/{training_epochs} - Loss: {training_loss.item():.4f}")
+    print("[*] Saving artefacts")
+    torch.save(model.state_dict(), p.nn_state)
 
-print()
-print("[+] Neural network training complete.")
-print()
 
-# ------------------------------------------------------------
-# 5. Evaluation on test set
-# ------------------------------------------------------------
+    import joblib
 
-print("[*] Evaluating neural network on testing dataset...")
+    joblib.dump(scaler, p.nn_scaler)
+    joblib.dump(feature_cols, p.nn_feature_cols)
 
-neural_network_model.eval()
-with torch.no_grad():
-    # Forward pass on the test set without tracking gradients
-    testing_output_logits = neural_network_model(testing_feature_tensor)
+    save_json(p.metrics_json, {"nn_metrics": nn_metrics})
 
-    # argmax over the class dimension returns predicted class index
-    predicted_label_tensor = torch.argmax(testing_output_logits, dim=1)
+    print(f"[+] Saved: {p.nn_state}")
+    print(f"[+] Saved: {p.nn_scaler}")
+    print(f"[+] Saved: {p.nn_feature_cols}")
+    print(f"[+] Saved: {p.metrics_json}")
+    print()
 
-# Move predictions back to CPU and convert to NumPy for use
-# with scikit-learn metric functions.
-predicted_labels = predicted_label_tensor.cpu().numpy()
-true_labels = testing_labels
+    return 0
 
-# Standard binary classification metrics
-accuracy_value = accuracy_score(true_labels, predicted_labels)
-precision_value = precision_score(true_labels, predicted_labels)
-recall_value = recall_score(true_labels, predicted_labels)
-f1_value = f1_score(true_labels, predicted_labels)
 
-print("=== Neural Network Evaluation Results ===")
-print(f"Accuracy : {accuracy_value:.4f}")
-print(f"Precision: {precision_value:.4f}")
-print(f"Recall   : {recall_value:.4f}")
-print(f"F1-score : {f1_value:.4f}")
-print()
+if __name__ != "__main__":
+    _p = resolve_paths()
+    nn_metrics = load_saved_metrics(_p.metrics_json)
 
-# Expose metrics for Part IV comparison. Other modules can
-# import fortisense_nn.py and directly use nn_metrics.
-nn_metrics = {
-    "model": "Neural Network",
-    "accuracy": accuracy_value,
-    "precision": precision_value,
-    "recall": recall_value,
-    "f1_score": f1_value,
-}
-
-# ------------------------------------------------------------
-# 6. Save trained model
-# ------------------------------------------------------------
-
-# Only the state_dict (weights and biases) is saved here.
-# The architecture itself is defined in FortiSenseNeuralNetwork
-# and reconstructed at inference time.
-torch.save(neural_network_model.state_dict(), model_output_path)
-
-print(f"[✓] Neural network model saved to: {model_output_path}")
-print("[✓] FortiSense NN - Training and evaluation completed")
+if __name__ == "__main__":
+    raise SystemExit(main())

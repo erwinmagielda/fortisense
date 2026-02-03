@@ -1,138 +1,142 @@
+"""
+FortiSense Client
+
+Simulates live network traffic by streaming feature rows to the IDS server and reporting online prediction accuracy.
+"""
+
+
 import os
-import socket
 import pickle
+import socket
+from dataclasses import dataclass
+from typing import Dict, Tuple
 
 import pandas as pd
 
-# ============================================================
-# FortiSense - Part V: Real-Time IDS Client
-#
-# This client simulates live network traffic by streaming a
-# subset of KDD-style test samples to the FortiSense IDS server.
-#
-# High level workflow:
-#   1) Load KDDTest.csv from the data directory
-#   2) Separate features from labels
-#   3) Randomly select 50 rows to emulate live connections
-#   4) Open a TCP connection to the IDS server
-#   5) For each sampled row:
-#        - serialize feature dictionary with pickle
-#        - send over the socket
-#        - receive prediction string ("normal" or "attack")
-#        - compare with ground truth label
-#   6) Print per sample result and overall online accuracy
-#
-# Note:
-#   - This uses a very simple, unframed protocol and pickle,
-#     which is acceptable only in a controlled lab environment.
-# ============================================================
 
-# ------------------------------------------------------------
-# Resolve project structure relative to this script
-# ------------------------------------------------------------
-project_root_directory = os.path.dirname(os.path.dirname(__file__))
-dataset_directory = os.path.join(project_root_directory, "data")
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 5050
+DEFAULT_SAMPLE_COUNT = 50
+DEFAULT_RANDOM_SEED = 42
+RECV_BYTES = 4096
 
-testing_dataset_path = os.path.join(dataset_directory, "KDDTest.csv")
 
-# IDS server endpoint (must match the server configuration)
-server_host = "127.0.0.1"
-server_port = 5050
+@dataclass(frozen=True)
+class ClientConfig:
+    host: str = DEFAULT_HOST
+    port: int = DEFAULT_PORT
+    sample_count: int = DEFAULT_SAMPLE_COUNT
+    random_seed: int = DEFAULT_RANDOM_SEED
 
-print("[*] FortiSense IDS Client - Loading test dataset...")
 
-# Load KDD-style test split
-testing_dataframe = pd.read_csv(testing_dataset_path)
+def resolve_paths() -> Tuple[str, str]:
+    """Resolve project root and the default test dataset path."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(script_dir)
+    dataset_path = os.path.join(root_dir, "data", "KDDTest.csv")
+    return root_dir, dataset_path
 
-# Keep a copy of the binary labels so we can compute accuracy
-true_label_series = testing_dataframe["label"]
 
-# Only feature columns are sent to the IDS server
-# label and attack_type are removed so the server receives
-# strictly numeric features plus any non label attributes
-feature_dataframe = testing_dataframe.drop(columns=["label", "attack_type"])
+def load_test_dataset(path: str) -> pd.DataFrame:
+    """Load the test dataset and validate required columns."""
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"Test dataset not found: {path}")
 
-print(f"[+] Test dataset loaded with {len(feature_dataframe)} total rows.\n")
+    df = pd.read_csv(path)
 
-# ------------------------------------------------------------
-# Select a subset to simulate real time traffic
-# ------------------------------------------------------------
+    required = {"label", "attack_type"}
+    missing = required - set(df.columns)
+    if missing:
+        raise RuntimeError(f"Dataset missing required columns: {sorted(missing)}")
 
-# 50 samples is enough to demonstrate online performance
-sample_count = 50
+    return df
 
-# Randomly sample rows with a fixed seed for reproducibility
-sampled_dataframe = feature_dataframe.sample(n=sample_count, random_state=42)
-sampled_indices = sampled_dataframe.index
 
-print(f"[*] Selected {sample_count} random samples for real-time testing.")
-print(f"[+] Sample indices: {list(sampled_indices[:10])} ...\n")
+def build_sample(df: pd.DataFrame, sample_count: int, seed: int) -> Tuple[pd.DataFrame, pd.Series]:
+    """Return sampled feature rows and the aligned ground truth labels."""
+    labels = df["label"]
+    features = df.drop(columns=["label", "attack_type"])
 
-# ------------------------------------------------------------
-# Connect to the IDS server
-# ------------------------------------------------------------
+    if sample_count <= 0:
+        raise ValueError("sample_count must be greater than 0")
 
-print(f"[*] Connecting to IDS server at {server_host}:{server_port}...")
+    if sample_count > len(features):
+        raise ValueError(f"sample_count ({sample_count}) exceeds dataset size ({len(features)})")
 
-# create_connection handles underlying socket creation and connect
-with socket.create_connection((server_host, server_port)) as client_socket:
-    print("[+] Connected to IDS server.")
-    print("[*] Sending sampled rows as simulated network traffic...\n")
+    sampled = features.sample(n=sample_count, random_state=seed)
+    return sampled, labels
 
-    total_samples_sent = 0
-    total_correct_predictions = 0
 
-    # --------------------------------------------------------
-    # Stream each sampled row as a single request
-    # --------------------------------------------------------
-    for position, row_index in enumerate(sampled_indices, start=1):
-        # Extract this row and convert it to a simple dictionary.
-        # This structure matches what the server expects to unpickle.
-        sample_row_dictionary = sampled_dataframe.loc[row_index].to_dict()
+def encode_payload(row_dict: Dict) -> bytes:
+    """Serialise a single sample into bytes."""
+    return pickle.dumps(row_dict)
 
-        # Serialize dictionary into bytes using pickle
-        # Warning: pickle is unsafe with untrusted sources.
-        # This pattern is intended for isolated lab use only.
-        payload_bytes = pickle.dumps(sample_row_dictionary)
 
-        # Send the encoded payload to the server
-        client_socket.send(payload_bytes)
+def decode_prediction(raw: bytes) -> str:
+    """Decode the server response label."""
+    return raw.decode(errors="replace").strip().lower()
 
-        # Receive prediction from server.
-        # The protocol is a simple text response such as "normal" or "attack".
-        prediction_text = client_socket.recv(4096).decode().strip()
 
-        # Ground truth label for this row (0 normal, 1 attack)
-        true_label_value = int(true_label_series.loc[row_index])
-        true_label_text = "normal" if true_label_value == 0 else "attack"
+def label_to_text(label_value: int) -> str:
+    """Convert ground truth label to response tokens expected from the server."""
+    return "normal" if int(label_value) == 0 else "attack"
 
-        # Compare received prediction with the ground truth
-        is_correct_prediction = (prediction_text == true_label_text)
 
-        total_samples_sent += 1
-        if is_correct_prediction:
-            total_correct_predictions += 1
+def run_client(config: ClientConfig, dataset_path: str) -> int:
+    print("[*] FortiSense client starting")
+    print(f"[*] Dataset: {dataset_path}")
+    print(f"[*] Target: {config.host}:{config.port}")
+    print()
 
-        correctness_flag = "CORRECT" if is_correct_prediction else "WRONG"
+    df = load_test_dataset(dataset_path)
+    sampled_df, true_labels = build_sample(df, config.sample_count, config.random_seed)
 
-        # Per sample status line
-        print(
-            f"Sample {position:02d} (row index {row_index}) - "
-            f"True: {true_label_text:7s} | Predicted: {prediction_text:7s} "
-            f"-> {correctness_flag}"
-        )
+    indices = list(sampled_df.index)
+    print(f"[+] Loaded rows: {len(df)}")
+    print(f"[+] Streaming samples: {len(indices)} (seed {config.random_seed})")
+    print()
 
-    # --------------------------------------------------------
-    # Compute simple online accuracy for this batch
-    # --------------------------------------------------------
-    if total_samples_sent > 0:
-        accuracy_ratio = total_correct_predictions / total_samples_sent
-    else:
-        accuracy_ratio = 0.0
+    total = 0
+    correct = 0
 
-    print("\n=== FortiSense IDS - Online Evaluation Summary ===")
-    print(f"Total samples sent           : {total_samples_sent}")
-    print(f"Correct predictions          : {total_correct_predictions}")
-    print(f"Online accuracy (50 samples) : {accuracy_ratio:.4f}\n")
+    with socket.create_connection((config.host, config.port)) as sock:
+        print("[+] Connected")
+        print()
 
-    print("[✓] Finished sending samples. Closing client connection.")
+        for i, idx in enumerate(indices, start=1):
+            payload = encode_payload(sampled_df.loc[idx].to_dict())
+            sock.send(payload)
+
+            pred = decode_prediction(sock.recv(RECV_BYTES))
+            truth = label_to_text(true_labels.loc[idx])
+
+            ok = pred == truth
+            total += 1
+            correct += 1 if ok else 0
+
+            flag = "OK" if ok else "MISS"
+            print(f"{i:02d}) row={idx} truth={truth:<6} pred={pred:<6} {flag}")
+
+    acc = (correct / total) if total else 0.0
+    print()
+    print("=== FortiSense Online Summary ===")
+    print(f"Samples:   {total}")
+    print(f"Correct:   {correct}")
+    print(f"Accuracy:  {acc:.4f}")
+    print()
+
+    return 0
+
+
+def main() -> int:
+    _, dataset_path = resolve_paths()
+    cfg = ClientConfig()
+    try:
+        return run_client(cfg, dataset_path)
+    except Exception as exc:
+        print(f"[!] Client error: {exc}")
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
